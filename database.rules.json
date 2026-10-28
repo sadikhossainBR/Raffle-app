@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "auth": {
+      ".read": true,
+      ".write": "!data.exists()"
+    },
+    "names": {
+      ".read": true,
+      ".write": true,
+      "$id": {
+        ".validate": "newData.hasChildren(['name', 't']) && newData.child('name').isString() && newData.child('name').val().length <= 40"
+      }
+    },
+    "control": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

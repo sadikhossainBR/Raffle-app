@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raffle Wheel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #EDF0F3; --surface: #FFFFFF; --surface-2: #E3E8ED; --fg: #131A22; --muted: #566370;
+  --line: #C9D1D9; --accent: #D6452B; --accent-fg: #FFFFFF; --danger: #B3261E; --ok: #1E7A3C;
+  --rim: #1A212A; --hub: #FFFFFF; --bulb-on: #FFC857; --bulb-off: #6B7683;
+  --display: 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif;
+  --body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1217; --surface: #161C24; --surface-2: #1F2731; --fg: #E8EDF2; --muted: #93A0AD;
+    --line: #2B3541; --accent: #F0603F; --accent-fg: #1A0D08; --danger: #FF8A7A; --ok: #6FD08C;
+    --rim: #05080B; --hub: #1F2731; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding: 20px 16px 48px;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.app { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 {
+  margin: 0; font-family: var(--display); font-weight: 900; text-transform: uppercase;
+  font-size: clamp(36px, 7vw, 60px); line-height: 0.95; letter-spacing: 0.02em; user-select: none;
+}
+.lede { margin: 6px 0 0; color: var(--muted); }
+.top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+
+.btn { font: 600 15px/1 var(--body); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.btn-small { padding: 7px 11px; font-size: 14px; }
+.btn-primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.08); }
+.btn-danger { color: var(--danger); }
+.link { background: none; border: 0; padding: 0; color: var(--muted); font: 500 14px var(--body); text-decoration: underline; cursor: pointer; justify-self: start; }
+
+.gate { display: grid; place-items: start center; padding-top: 6vh; }
+.gate-card { width: min(100%, 440px); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px; display: grid; gap: 14px; }
+.gate-card h2 { margin: 0; }
+form { display: grid; gap: 12px; margin: 0; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 14px; font-weight: 600; }
+input[type="password"], input[type="text"], input[type="url"], textarea {
+  width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--fg); font: 400 16px/1.5 var(--body);
+}
+textarea { min-height: 96px; resize: vertical; }
+.err { margin: 0; min-height: 1.5em; color: var(--danger); font-size: 14px; }
+
+.layout { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } }
+
+.stage { display: grid; gap: 18px; justify-items: center; min-width: 0; }
+.wheel-wrap { position: relative; width: min(100%, 600px); aspect-ratio: 1; max-width: 100%; }
+canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+.pointer { position: absolute; left: 50%; top: -1.5%; width: 7%; aspect-ratio: 1 / 1.15; transform: translateX(-50%); background: var(--accent); clip-path: polygon(0 0, 100% 0, 50% 100%); z-index: 2; }
+.hub {
+  position: absolute; left: 50%; top: 50%; width: 20%; aspect-ratio: 1; transform: translate(-50%, -50%);
+  border: 0; border-radius: 50%; background: var(--hub); color: var(--fg);
+  font-family: var(--display); font-weight: 900; font-size: clamp(14px, 3.4vw, 24px); letter-spacing: 0.1em;
+  box-shadow: 0 0 0 5px var(--rim), 0 3px 12px rgba(0,0,0,0.3); cursor: pointer;
+}
+.hub[disabled] { cursor: not-allowed; opacity: 0.7; }
+.spin { width: min(100%, 600px); border: 0; border-radius: 10px; padding: 16px 20px; cursor: pointer; background: var(--accent); color: var(--accent-fg); font-family: var(--display); font-weight: 900; font-size: 28px; letter-spacing: 0.08em; text-transform: uppercase; }
+.spin[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.ticket { width: min(100%, 600px); display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--surface); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+.stub { position: relative; padding: 16px 20px; min-width: 112px; border-right: 2px dashed var(--line); display: grid; align-content: center; justify-items: center; gap: 2px; }
+.stub::before, .stub::after { content: ""; position: absolute; right: -9px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.stub::before { top: -9px; }
+.stub::after { bottom: -9px; }
+.tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.num { font-family: var(--display); font-weight: 900; font-size: 56px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ticket-body { padding: 14px 20px; display: grid; align-content: center; gap: 4px; min-width: 0; }
+.name { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(30px, 6vw, 46px); line-height: 1.05; overflow-wrap: anywhere; text-wrap: balance; }
+.name.idle { color: var(--muted); }
+.ticket-actions { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.note { font-size: 14px; color: var(--muted); }
+.pop { animation: pop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+@keyframes pop { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.side { display: grid; gap: 22px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+h2 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 24px; text-transform: uppercase; letter-spacing: 0.05em; }
+.count { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.hint { margin: 0; font-size: 14px; color: var(--muted); }
+.row-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+.names { margin: 0; padding: 0; list-style: none; max-height: 320px; overflow-y: auto; border-top: 1px solid var(--line); }
+.names li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.names .i { font-family: var(--mono); font-size: 13px; color: var(--accent); flex: none; width: 2.2em; }
+.names .t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.names .x { flex: none; }
+.empty { margin: 0; padding: 14px 0; color: var(--muted); font-size: 14px; }
+
+.log { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.log li { display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.log .n { font-family: var(--mono); font-size: 13px; color: var(--accent); flex: none; }
+.log .w { font-weight: 600; overflow-wrap: anywhere; }
+.mod-card { width: min(100%, 560px); margin: 0 auto; }
+
+.host { position: fixed; z-index: 20; display: grid; gap: 10px; padding: 14px; right: 12px; bottom: 12px; width: min(320px, calc(100% - 24px)); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.28); }
+.host-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; }
+.host label { font-size: 14px; color: var(--muted); }
+.host select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: 500 16px var(--body); }
+.check { display: flex; align-items: center; gap: 8px; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1 id="title">Raffle Wheel</h1>
+      <p class="lede" id="lede">Enter your password to continue.</p>
+    </div>
+    <div class="top-actions" id="topActions" hidden>
+      <span class="pill" id="rolePill"></span>
+      <button class="btn" id="soundBtn" type="button" aria-pressed="true">Sound on</button>
+      <button class="btn" id="lockBtn" type="button">Lock</button>
+    </div>
+  </header>
+
+  <section class="gate" id="gate">
+    <div class="gate-card">
+      <h2 id="gateTitle">Locked</h2>
+      <p class="hint" id="gateMsg">Connecting...</p>
+
+      <form id="connectForm" hidden>
+        <div class="field">
+          <label for="dbUrl">Database address</label>
+          <input type="url" id="dbUrl" placeholder="https://your-project-default-rtdb.firebaseio.com" autocomplete="off" spellcheck="false" required>
+        </div>
+        <button class="btn btn-primary" type="submit">Connect</button>
+      </form>
+
+      <form id="unlockForm" hidden>
+        <div class="field">
+          <label for="pw">Password</label>
+          <input type="password" id="pw" autocomplete="off" required>
+        </div>
+        <button class="btn btn-primary" id="unlockBtn" type="submit">Unlock</button>
+      </form>
+
+      <form id="setupForm" hidden>
+        <div class="field">
+          <label for="newAdmin">Admin password</label>
+          <input type="password" id="newAdmin" autocomplete="new-password" minlength="4" required>
+        </div>
+        <div class="field">
+          <label for="newMod">Moderator password</label>
+          <input type="password" id="newMod" autocomplete="new-password" minlength="4" required>
+        </div>
+        <button class="btn btn-primary" type="submit">Save passwords</button>
+      </form>
+
+      <button class="btn" id="retryBtn" type="button" hidden>Try again</button>
+      <p class="err" id="gateErr" role="alert"></p>
+      <button class="link" id="changeDb" type="button" hidden>Use a different database</button>
+    </div>
+  </section>
+
+  <main class="layout" id="adminView" hidden>
+    <section class="stage" aria-label="Wheel">
+      <div class="wheel-wrap" id="wrap">
+        <canvas id="wheel" role="img" aria-label="Name wheel"></canvas>
+        <div class="pointer" aria-hidden="true"></div>
+        <button class="hub" id="hub" type="button" tabindex="-1" aria-hidden="true">SPIN</button>
+      </div>
+      <button class="spin" id="spinBtn" type="button">Spin the wheel</button>
+      <div class="ticket" aria-live="polite">
+        <div class="stub"><span class="tag">Entry</span><span class="num" id="tNum">--</span></div>
+        <div class="ticket-body">
+          <span class="tag" id="tTag">Winner</span>
+          <p class="name idle" id="tName">No draw yet</p>
+          <div class="ticket-actions" id="tActions" hidden>
+            <button class="btn btn-small" id="removeBtn" type="button">Remove from wheel</button>
+            <span class="note" id="tNote"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="side">
+      <div class="panel">
+        <div class="panel-head"><h2>Names</h2><span class="count" id="count">0 names</span></div>
+        <div class="field">
+          <label for="addNames" class="hint">Add names, one per line. Up to 100 on the wheel.</label>
+          <textarea id="addNames" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-primary btn-small" id="addBtn" type="button">Add names</button>
+          <button class="btn btn-danger btn-small" id="clearAll" type="button">Clear all</button>
+          <span class="note" id="addNote" role="status"></span>
+        </div>
+        <ul class="names" id="nameList"></ul>
+      </div>
+      <div class="panel" id="logPanel" hidden>
+        <div class="panel-head"><h2>Draws</h2><button class="btn btn-small" id="clearLog" type="button">Clear</button></div>
+        <ol class="log" id="log"></ol>
+      </div>
+    </section>
+  </main>
+
+  <main id="modView" hidden>
+    <div class="panel mod-card">
+      <div class="panel-head"><h2>Add names</h2><span class="count" id="modCount">0 on the wheel</span></div>
+      <div class="field">
+        <label for="modNames" class="hint">One name per line. You can add names but not see or remove them.</label>
+        <textarea id="modNames" spellcheck="false" autocomplete="off"></textarea>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-primary" id="modAdd" type="button">Add names</button>
+        <span class="note" id="modNote" role="status"></span>
+      </div>
+      <p class="hint" id="modMineHead" hidden>Added in this visit</p>
+      <ul class="names" id="modMine" hidden></ul>
+    </div>
+  </main>
+</div>
+
+<aside class="host" id="host" role="dialog" aria-label="Host controls" hidden>
+  <div class="host-head"><span>Host controls</span><button class="btn btn-small" id="hostClose" type="button">Close</button></div>
+  <label for="forceSel">Next winner (syncs to your other devices)</label>
+  <select id="forceSel"></select>
+  <label class="check" for="forceSticky"><input type="checkbox" id="forceSticky"> Use for every spin</label>
+</aside>
+
+<script>
+(function () {
+  var TAU = Math.PI * 2;
+  var MAX_NAMES = 100, MAX_LEN = 40, ITERS = 150000, MIN_PW = 4;
+  var $ = function (id) { return document.getElementById(id); };
+  var canvas = $('wheel'), ctx = canvas.getContext('2d'), wrap = $('wrap');
+  var COLORS = ['#D6452B', '#1F6FEB', '#2B9348', '#8E44AD', '#C77D0A', '#0E8F8F', '#C2255C', '#5C6BC0'];
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var cfg = window.RAFFLE_CONFIG || {};
+
+  var base = null;          // database address, no trailing slash
+  var net = 'loading';      // 'loading' | 'ok' | 'offline'
+  var auth = null;          // password records, or null when not set up
+  var role = null;          // null | 'admin' | 'mod'
+  var adminKey = null;
+  var entries = [], pendingDocs = null, lastNamesText = null;
+  var rot = 0, spinning = false, highlight = null, phase = 0;
+  var forced = { id: null }, lastWinnerId = null, history = [], mineThisVisit = [];
+  var namesTimer = null, ctrlTimer = null, lastCtrlText = null, quietUntil = 0, pushing = 0;
+  var audio = null, soundOn = true;
+  var fails = 0, lockedUntil = 0, lockTimer = null;
+
+  function mod(a, m) { return ((a % m) + m) % m; }
+  function randInt(n) { var a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; }
+  function pad(i) { return String(i + 1).padStart(2, '0'); }
+  function show(el, on) { el.hidden = !on; }
+  function setErr(msg) { $('gateErr').textContent = msg || ''; }
+
+  /* ---------- database (Firebase Realtime Database over plain web requests) ---------- */
+  function normalizeUrl(u) {
+    u = String(u || '').trim().replace(/\/+$/, '');
+    return /^(https:\/\/[^\s\/]+|http:\/\/(127\.0\.0\.1|localhost)(:\d+)?)$/i.test(u) ? u : null;
+  }
+  function storedUrl() { try { return localStorage.getItem('rw.dburl'); } catch (e) { return null; } }
+  function saveUrl(u) { try { localStorage.setItem('rw.dburl', u); } catch (e) {} }
+  function forgetUrl() { try { localStorage.removeItem('rw.dburl'); } catch (e) {} }
+
+  async function api(method, path, body) {
+    var opts = { method: method, cache: 'no-store' };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    var r = await fetch(base + '/' + path + '.json', opts);
+    if (!r.ok) { var e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+    return r.json();
+  }
+
+  /* ---------- passwords: salted PBKDF2 hashes only ---------- */
+  function b64(buf) { var s = ''; new Uint8Array(buf).forEach(function (b) { s += String.fromCharCode(b); }); return btoa(s); }
+  function unb64(s) { var bin = atob(s), a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+  async function derive(pw, salt, iters) {
+    var key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: iters, hash: 'SHA-256' }, key, 256));
+  }
+  async function makeRecord(pw) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    return { s: b64(salt), h: await derive(pw, salt, ITERS), i: ITERS };
+  }
+  async function matches(pw, rec) {
+    if (!rec || !rec.s || !rec.h) return false;
+    try { return (await derive(pw, unb64(rec.s), rec.i || ITERS)) === rec.h; } catch (e) { return false; }
+  }
+
+  /* ---------- hidden next winner: encrypted with the admin password ---------- */
+  async function deriveKey(pw, rec) {
+    var base0 = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+    var s = unb64(rec.s), salt = new Uint8Array(s.length + 1);
+    salt.set(s); salt[s.length] = 107;
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: rec.i || ITERS, hash: 'SHA-256' }, base0, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  async function sealPick(obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, adminKey, new TextEncoder().encode(JSON.stringify(obj)));
+    return { iv: b64(iv), ct: b64(ct) };
+  }
+  async function openPick(rec) {
+    try {
+      var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(rec.iv) }, adminKey, unb64(rec.ct));
+      return JSON.parse(new TextDecoder().decode(pt));
+    } catch (e) { return null; }
+  }
+  async function pushForced() {
+    if (!base || !adminKey || role !== 'admin') return;
+    pushing++;
+    try { await api('PUT', 'control', await sealPick({ id: forced.id, sticky: $('forceSticky').checked })); }
+    catch (e) {}
+    pushing--; quietUntil = Date.now() + 3500;
+  }
+  async function pollControl() {
+    if (role !== 'admin' || !adminKey || pushing || Date.now() < quietUntil) return;
+    try {
+      var rec = await api('GET', 'control');
+      var text = JSON.stringify(rec);
+      if (text === lastCtrlText) return;
+      lastCtrlText = text;
+      var o = rec && rec.ct ? await openPick(rec) : null;
+      forced = { id: (o && o.id) || null };
+      $('forceSticky').checked = !!(o && o.sticky);
+      buildHostOptions();
+    } catch (e) {}
+  }
+
+  /* ---------- sound ---------- */
+  function ensureAudio() {
+    if (!soundOn) return;
+    try {
+      if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+    } catch (e) { audio = null; }
+  }
+  function beep(freq, dur, vol, type, delay) {
+    if (!soundOn || !audio) return;
+    try {
+      var t = audio.currentTime + (delay || 0);
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.type = type || 'triangle'; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) {}
+  }
+  function tick() { beep(880 + Math.random() * 90, 0.04, 0.06, 'triangle'); }
+  function chime() { beep(659, 0.28, 0.09, 'sine'); beep(880, 0.4, 0.09, 'sine', 0.16); beep(1175, 0.5, 0.08, 'sine', 0.32); }
+
+  /* ---------- wheel drawing ---------- */
+  function draw() {
+    var W = canvas.width;
+    if (!W || $('adminView').hidden) return;
+    var cs = getComputedStyle(document.documentElement);
+    var col = function (n) { return cs.getPropertyValue(n).trim(); };
+    var dpr = W / (wrap.clientWidth || W);
+    var c = W / 2, outer = c - 2 * dpr, rimW = c * 0.1, R = outer - rimW;
+    var n = entries.length;
+    ctx.clearRect(0, 0, W, W);
+    ctx.fillStyle = col('--rim');
+    ctx.beginPath(); ctx.arc(c, c, outer, 0, TAU); ctx.fill();
+    var bulbs = 28, br = rimW * 0.2, bulbR = outer - rimW / 2;
+    for (var b = 0; b < bulbs; b++) {
+      var ba = (b / bulbs) * TAU;
+      var on = spinning ? ((b + Math.floor(phase)) % 2 === 0) : (b % 2 === 0);
+      ctx.fillStyle = on ? col('--bulb-on') : col('--bulb-off');
+      ctx.beginPath(); ctx.arc(c + Math.cos(ba) * bulbR, c + Math.sin(ba) * bulbR, br, 0, TAU); ctx.fill();
+    }
+    if (n === 0) {
+      ctx.fillStyle = col('--surface-2');
+      ctx.beginPath(); ctx.arc(c, c, R, 0, TAU); ctx.fill();
+      ctx.fillStyle = col('--muted');
+      ctx.font = '700 ' + (20 * dpr) + 'px Figtree, system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Add names to begin', c, c + R * 0.35);
+      return;
+    }
+    var seg = TAU / n, fs = Math.min(24 * dpr, R * 0.8 * seg * 0.5);
+    for (var i = 0; i < n; i++) {
+      var a0 = rot + i * seg, a1 = a0 + seg;
+      ctx.globalAlpha = (highlight !== null && i !== highlight) ? 0.35 : 1;
+      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, R, a0, a1); ctx.closePath(); ctx.fill();
+      if (n > 1) { ctx.strokeStyle = col('--rim'); ctx.lineWidth = 2 * dpr; ctx.stroke(); }
+      if (fs >= 9 * dpr) {
+        ctx.save();
+        ctx.translate(c, c); ctx.rotate(a0 + seg / 2);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '700 ' + fs + 'px Figtree, system-ui, sans-serif';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        var s = entries[i].name, maxW = R * 0.66;
+        if (ctx.measureText(s).width > maxW) {
+          while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+          s += '…';
+        }
+        ctx.fillText(s, R - R * 0.07, 0);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function resize() {
+    var w = wrap.clientWidth;
+    if (!w) return;
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(w * dpr);
+    draw();
+  }
+
+  /* ---------- names ---------- */
+  function applyDocs(docs) {
+    var prev = forced.id;
+    entries = docs;
+    highlight = null;
+    if (prev && !entries.some(function (e) { return e.id === prev; })) forced = { id: null };
+    renderNames();
+  }
+  async function pollNames(force) {
+    if (role === null || !base) return;
+    try {
+      var data = await api('GET', 'names');
+      var text = JSON.stringify(data);
+      if (!force && text === lastNamesText) return;
+      lastNamesText = text;
+      var docs = Object.keys(data || {}).map(function (id) {
+        var v = data[id] || {};
+        return { id: id, name: String(v.name || ''), t: Number(v.t) || 0 };
+      }).filter(function (e) { return e.name; }).sort(function (a, b) { return a.t - b.t || (a.id < b.id ? -1 : 1); });
+      if (spinning) { pendingDocs = docs; return; }
+      applyDocs(docs);
+    } catch (e) {}
+  }
+
+  function renderNames() {
+    var n = entries.length;
+    $('count').textContent = n + (n === 1 ? ' name' : ' names');
+    $('modCount').textContent = n + ' on the wheel';
+    var ul = $('nameList');
+    ul.innerHTML = '';
+    if (!n) {
+      var li0 = document.createElement('li'), p = document.createElement('p');
+      p.className = 'empty'; p.textContent = 'No names yet. Add some above, or ask your moderator.';
+      li0.appendChild(p); ul.appendChild(li0);
+    }
+    entries.forEach(function (e, i) {
+      var li = document.createElement('li');
+      var ix = document.createElement('span'); ix.className = 'i'; ix.textContent = pad(i);
+      var t = document.createElement('span'); t.className = 't'; t.textContent = e.name;
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'btn btn-small x'; x.textContent = 'Remove';
+      x.setAttribute('aria-label', 'Remove ' + e.name);
+      x.addEventListener('click', function () { removeName(e.id); });
+      li.appendChild(ix); li.appendChild(t); li.appendChild(x); ul.appendChild(li);
+    });
+    var ok = n >= 2 && !spinning;
+    $('spinBtn').disabled = !ok; $('hub').disabled = !ok;
+    $('spinBtn').title = n < 2 ? 'Add at least two names' : '';
+    buildHostOptions();
+    draw();
+  }
+
+  function buildHostOptions() {
+    var sel = $('forceSel');
+    sel.innerHTML = '';
+    var r = document.createElement('option'); r.value = ''; r.textContent = 'Random (fair draw)';
+    sel.appendChild(r);
+    entries.forEach(function (e, i) {
+      var o = document.createElement('option'); o.value = e.id; o.textContent = '#' + pad(i) + '  ' + e.name;
+      sel.appendChild(o);
+    });
+    sel.value = forced.id || '';
+  }
+
+  function cleanLines(text, existing) {
+    var seen = {};
+    existing.forEach(function (e) { seen[e.toLowerCase()] = true; });
+    var out = [], dupes = 0, cut = 0;
+    text.split(/\r?\n/).forEach(function (raw) {
+      var s = raw.trim().replace(/\s+/g, ' ');
+      if (!s) return;
+      if (s.length > MAX_LEN) { s = s.slice(0, MAX_LEN); cut++; }
+      var k = s.toLowerCase();
+      if (seen[k]) { dupes++; return; }
+      seen[k] = true; out.push(s);
+    });
+    return { names: out, dupes: dupes, cut: cut };
+  }
+
+  async function addNames(text, noteEl, onAdded) {
+    await pollNames(true);
+    var res = cleanLines(text, entries.map(function (e) { return e.name; }));
+    var room = MAX_NAMES - entries.length;
+    var list = res.names.slice(0, Math.max(0, room));
+    if (!list.length) {
+      noteEl.textContent = room <= 0 ? 'The wheel is full (' + MAX_NAMES + ' names).' : (res.dupes ? 'Those names are already on the wheel.' : 'Type at least one name.');
+      return;
+    }
+    noteEl.textContent = 'Adding...';
+    var added = [], base0 = Date.now();
+    try {
+      for (var i = 0; i < list.length; i++) {
+        await api('POST', 'names', { name: list[i], t: base0 + i });
+        added.push(list[i]);
+      }
+    } catch (e) {
+      noteEl.textContent = 'Could not add names. Check your internet and try again.';
+      if (added.length) { onAdded(added); pollNames(true); }
+      return;
+    }
+    var msg = 'Added ' + added.length + (added.length === 1 ? ' name' : ' names');
+    if (list.length < res.names.length) msg += '. The wheel is now full';
+    if (res.dupes) msg += '. Skipped ' + res.dupes + ' duplicate' + (res.dupes === 1 ? '' : 's');
+    if (res.cut) msg += '. Shortened ' + res.cut + ' long name' + (res.cut === 1 ? '' : 's');
+    noteEl.textContent = msg + '.';
+    onAdded(added);
+    pollNames(true);
+  }
+
+  async function removeName(id) {
+    if (spinning) return;
+    try { await api('DELETE', 'names/' + encodeURIComponent(id)); await pollNames(true); }
+    catch (e) { $('addNote').textContent = 'Could not remove that name.'; }
+  }
+
+  /* ---------- ticket ---------- */
+  function resetTicket() {
+    $('tNum').textContent = '--'; $('tName').textContent = 'No draw yet'; $('tName').className = 'name idle';
+    $('tTag').textContent = 'Winner'; $('tActions').hidden = true;
+  }
+  function setDrawing() {
+    $('tNum').textContent = '..'; $('tName').textContent = 'Drawing...'; $('tName').className = 'name idle';
+    $('tTag').textContent = 'Spinning'; $('tActions').hidden = true;
+  }
+  function showWinner(i) {
+    $('tNum').textContent = pad(i);
+    var nm = $('tName');
+    nm.textContent = entries[i].name; nm.className = 'name'; void nm.offsetWidth; nm.className = 'name pop';
+    $('tTag').textContent = 'Winner'; $('tNote').textContent = '';
+    $('removeBtn').hidden = false; $('tActions').hidden = false;
+  }
+  function renderLog() {
+    var ol = $('log');
+    ol.innerHTML = '';
+    history.slice().reverse().forEach(function (h) {
+      var li = document.createElement('li');
+      var n = document.createElement('span'); n.className = 'n'; n.textContent = '#' + h.n;
+      var w = document.createElement('span'); w.className = 'w'; w.textContent = h.name;
+      li.appendChild(n); li.appendChild(w); ol.appendChild(li);
+    });
+    $('logPanel').hidden = history.length === 0;
+  }
+
+  /* ---------- spin ---------- */
+  function spin() {
+    if (spinning || entries.length < 2 || role !== 'admin') return;
+    ensureAudio();
+    var n = entries.length, seg = TAU / n;
+    var fi = forced.id ? entries.findIndex(function (e) { return e.id === forced.id; }) : -1;
+    var useForced = fi >= 0;
+    var t = useForced ? fi : randInt(n);
+    var frac = 0.18 + Math.random() * 0.64;
+    var base0 = -Math.PI / 2 - (t + frac) * seg;
+    var turns = 5 + Math.floor(Math.random() * 3);
+    var start = rot;
+    var target = base0 + TAU * Math.ceil((start + turns * TAU - base0) / TAU);
+    var dur = reduceMotion ? 1400 : 5200 + Math.random() * 1400;
+    spinning = true; highlight = null;
+    $('spinBtn').disabled = true; $('hub').disabled = true;
+    setDrawing();
+    var idxAt = function (r) { return Math.min(n - 1, Math.floor(mod(-Math.PI / 2 - r, TAU) / seg)); };
+    var lastIdx = idxAt(start), t0 = performance.now();
+    function frame(now) {
+      if (role !== 'admin') { spinning = false; return; }
+      var p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 4);
+      rot = start + (target - start) * e;
+      var idx = idxAt(rot);
+      if (idx !== lastIdx) { lastIdx = idx; tick(); }
+      phase = now / 110;
+      draw();
+      if (p < 1) { requestAnimationFrame(frame); return; }
+      finish();
+    }
+    function finish() {
+      spinning = false;
+      rot = mod(target, TAU);
+      var w = idxAt(rot);
+      highlight = w; lastWinnerId = entries[w].id;
+      draw(); showWinner(w);
+      history.push({ n: pad(w), name: entries[w].name });
+      renderLog(); chime();
+      if (useForced && !$('forceSticky').checked) { forced = { id: null }; $('forceSel').value = ''; pushForced(); }
+      if (pendingDocs) { var d = pendingDocs; pendingDocs = null; var keepId = lastWinnerId; applyDocs(d); highlight = d.findIndex(function (e) { return e.id === keepId; }); if (highlight < 0) highlight = null; draw(); }
+      else { $('spinBtn').disabled = entries.length < 2; $('hub').disabled = entries.length < 2; }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- lock screen and roles ---------- */
+  function renderGate() {
+    show($('gate'), role === null);
+    if (role !== null) return;
+    show($('topActions'), false);
+    $('lede').textContent = 'Enter your password to continue.';
+    ['connectForm', 'unlockForm', 'setupForm', 'retryBtn'].forEach(function (id) { show($(id), false); });
+    show($('changeDb'), !!base && !cfg.databaseUrl);
+
+    if (!base) {
+      $('gateTitle').textContent = 'Connect';
+      $('gateMsg').textContent = 'Paste the address of your online database. You only do this once on this computer.';
+      show($('connectForm'), true);
+      return;
+    }
+    if (net === 'loading') { $('gateTitle').textContent = 'Locked'; $('gateMsg').textContent = 'Connecting...'; return; }
+    if (net === 'offline') {
+      $('gateTitle').textContent = 'Cannot connect';
+      $('gateMsg').textContent = 'The app could not reach the database. Check your internet and the database address.';
+      show($('retryBtn'), true);
+      return;
+    }
+    if (!auth) {
+      $('gateTitle').textContent = 'Set up passwords';
+      $('gateMsg').textContent = 'First time only. Choose one password for the admin and a different one for moderators, with at least ' + MIN_PW + ' characters each. Do this before you share the app.';
+      show($('setupForm'), true);
+      return;
+    }
+    $('gateTitle').textContent = 'Locked';
+    $('gateMsg').textContent = 'Admins and moderators each have their own password.';
+    show($('unlockForm'), true);
+    updateLockout();
+  }
+
+  async function loadAuth() {
+    net = 'loading'; renderGate();
+    try { auth = await api('GET', 'auth'); net = 'ok'; }
+    catch (e) { net = 'offline'; }
+    renderGate();
+    if (net === 'ok' && auth) setTimeout(function () { if (!$('unlockForm').hidden) $('pw').focus(); }, 0);
+  }
+
+  function updateLockout() {
+    var left = Math.ceil((lockedUntil - Date.now()) / 1000), btn = $('unlockBtn');
+    if (left > 0) {
+      btn.disabled = true; setErr('Too many tries. Wait ' + left + ' seconds.');
+      clearTimeout(lockTimer); lockTimer = setTimeout(updateLockout, 500);
+    } else {
+      btn.disabled = false;
+      if ($('gateErr').textContent.indexOf('Too many') === 0) setErr('');
+    }
+  }
+
+  function enter(newRole) {
+    role = newRole; fails = 0; setErr(''); $('pw').value = '';
+    show($('gate'), false); show($('topActions'), true);
+    $('rolePill').textContent = role === 'admin' ? 'Admin' : 'Moderator';
+    show($('adminView'), role === 'admin'); show($('modView'), role === 'mod');
+    $('soundBtn').hidden = role !== 'admin';
+    $('lede').textContent = role === 'admin' ? 'Add the names, spin, and one entry wins.' : 'Add names to the wheel.';
+    if (role === 'admin') { resize(); resetTicket(); }
+    lastNamesText = null; lastCtrlText = null; quietUntil = 0;
+    pollNames(true);
+    namesTimer = setInterval(function () { pollNames(false); }, role === 'admin' ? 2500 : 6000);
+    if (role === 'admin') { pollControl(); ctrlTimer = setInterval(pollControl, 3000); }
+  }
+
+  function lock() {
+    if (spinning) return;
+    role = null;
+    clearInterval(namesTimer); clearInterval(ctrlTimer); namesTimer = ctrlTimer = null;
+    adminKey = null; $('forceSticky').checked = false;
+    entries = []; pendingDocs = null; history = []; mineThisVisit = [];
+    forced = { id: null }; lastWinnerId = null; highlight = null;
+    $('host').hidden = true;
+    $('addNames').value = ''; $('modNames').value = ''; $('addNote').textContent = ''; $('modNote').textContent = '';
+    show($('adminView'), false); show($('modView'), false);
+    renderLog(); renderMine();
+    loadAuth();
+  }
+
+  function renderMine() {
+    var ul = $('modMine');
+    ul.innerHTML = '';
+    mineThisVisit.forEach(function (nm) {
+      var li = document.createElement('li'), t = document.createElement('span');
+      t.className = 't'; t.textContent = nm; li.appendChild(t); ul.appendChild(li);
+    });
+    show(ul, mineThisVisit.length > 0); show($('modMineHead'), mineThisVisit.length > 0);
+  }
+
+  /* ---------- wiring ---------- */
+  $('connectForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var u = normalizeUrl($('dbUrl').value);
+    if (!u) { setErr('That does not look like a database address. It should start with https://'); return; }
+    base = u; saveUrl(u); setErr(''); loadAuth();
+  });
+  $('retryBtn').addEventListener('click', loadAuth);
+  $('changeDb').addEventListener('click', function () { forgetUrl(); base = null; auth = null; setErr(''); renderGate(); });
+
+  $('unlockForm').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    if (Date.now() < lockedUntil || !auth) return;
+    var pw = $('pw').value;
+    if (!pw) return;
+    var btn = $('unlockBtn'); btn.disabled = true; setErr('Checking...');
+    var isAdmin = await matches(pw, auth.a), isMod = await matches(pw, auth.m);
+    btn.disabled = false;
+    if (isAdmin) { try { adminKey = await deriveKey(pw, auth.a); } catch (e) { adminKey = null; } enter('admin'); return; }
+    if (isMod) { enter('mod'); return; }
+    fails++; $('pw').value = '';
+    if (fails >= 5) { fails = 0; lockedUntil = Date.now() + 30000; updateLockout(); }
+    else setErr('That password is not right.');
+  });
+
+  $('setupForm').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var a = $('newAdmin').value, m = $('newMod').value;
+    if (a.length < MIN_PW || m.length < MIN_PW) { setErr('Use at least ' + MIN_PW + ' characters for each password.'); return; }
+    if (a === m) { setErr('The admin and moderator passwords must be different.'); return; }
+    setErr('Saving...');
+    try {
+      var existing = await api('GET', 'auth');
+      if (existing) { auth = existing; setErr('Passwords were already set. Enter them below.'); renderGate(); return; }
+      var recA = await makeRecord(a), recM = await makeRecord(m);
+      await api('PUT', 'auth', { a: recA, m: recM });
+      auth = { a: recA, m: recM };
+      adminKey = await deriveKey(a, recA);
+      $('newAdmin').value = ''; $('newMod').value = '';
+      enter('admin');
+    } catch (e) { setErr('Could not save the passwords. Check your internet and the database rules.'); }
+  });
+
+  $('lockBtn').addEventListener('click', lock);
+  $('addBtn').addEventListener('click', function () { addNames($('addNames').value, $('addNote'), function () { $('addNames').value = ''; }); });
+
+  var clearTimer = null;
+  $('clearAll').addEventListener('click', async function () {
+    var btn = this;
+    if (!entries.length || spinning) return;
+    if (btn.dataset.armed !== '1') {
+      btn.dataset.armed = '1'; btn.textContent = 'Tap again to confirm';
+      clearTimer = setTimeout(function () { btn.dataset.armed = ''; btn.textContent = 'Clear all'; }, 4000);
+      return;
+    }
+    clearTimeout(clearTimer); btn.dataset.armed = ''; btn.textContent = 'Clear all';
+    try { await api('DELETE', 'names'); $('addNote').textContent = 'Cleared.'; resetTicket(); await pollNames(true); }
+    catch (e) { $('addNote').textContent = 'Could not clear the names.'; }
+  });
+
+  $('modAdd').addEventListener('click', function () {
+    addNames($('modNames').value, $('modNote'), function (added) {
+      $('modNames').value = '';
+      added.forEach(function (n) { mineThisVisit.push(n); });
+      renderMine();
+    });
+  });
+
+  $('spinBtn').addEventListener('click', spin);
+  $('hub').addEventListener('click', spin);
+  $('removeBtn').addEventListener('click', function () {
+    if (!lastWinnerId || spinning) return;
+    var id = lastWinnerId; lastWinnerId = null;
+    $('removeBtn').hidden = true; $('tNote').textContent = 'Removed from the wheel.';
+    removeName(id);
+  });
+  $('clearLog').addEventListener('click', function () { history = []; renderLog(); });
+  $('soundBtn').addEventListener('click', function () {
+    soundOn = !soundOn; this.textContent = soundOn ? 'Sound on' : 'Sound off'; this.setAttribute('aria-pressed', String(soundOn));
+  });
+  $('forceSel').addEventListener('change', function () { forced = { id: this.value || null }; pushForced(); });
+  $('forceSticky').addEventListener('change', function () { pushForced(); });
+
+  var host = $('host');
+  function toggleHost() { if (role === 'admin') host.hidden = !host.hidden; }
+  $('hostClose').addEventListener('click', function () { host.hidden = true; });
+  var taps = [];
+  $('title').addEventListener('click', function () {
+    var now = Date.now();
+    taps = taps.filter(function (t) { return now - t < 700; });
+    taps.push(now);
+    if (taps.length >= 3) { taps = []; toggleHost(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+    if (e.shiftKey && (e.key === 'H' || e.key === 'h') && !e.ctrlKey && !e.metaKey && !e.altKey) toggleHost();
+  });
+
+  if ('ResizeObserver' in window) new ResizeObserver(resize).observe(wrap);
+  window.addEventListener('resize', resize);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  /* ---------- start ---------- */
+  base = normalizeUrl(cfg.databaseUrl) || normalizeUrl(storedUrl());
+  if (base) loadAuth(); else renderGate();
+})();
+</script>
+</body>
+</html>

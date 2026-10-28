@@ -1,0 +1,16 @@
+{
+  "name": "raffle-wheel",
+  "productName": "Raffle Wheel",
+  "version": "2.0.0",
+  "description": "Raffle Wheel desktop app",
+  "main": "main.js",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-packager . \"Raffle Wheel\" --platform=win32 --arch=x64 --out=dist --overwrite --asar"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "33.2.1"
+  }
+}

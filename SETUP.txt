@@ -1,0 +1,45 @@
+RAFFLE WHEEL - SETUP
+====================
+
+This app needs a free online database so every device sees the same names.
+It uses Google Firebase (free Spark plan, no credit card). Setup takes about 5 minutes.
+
+PART 1: CREATE THE DATABASE (once)
+1. Go to https://console.firebase.google.com and sign in with a Google account.
+2. Click "Create a project". Give it any name. Turn Google Analytics off. Create.
+3. In the left menu open "Build", then "Realtime Database", then "Create Database".
+   Pick any location. Choose "Start in locked mode". Click Enable.
+4. Open the "Rules" tab. Delete everything there. Open the file database.rules.json
+   from this folder in Notepad, copy all of it, paste it into the Rules box, click "Publish".
+5. Open the "Data" tab. At the top is the database address. It looks like
+   https://your-project-default-rtdb.firebaseio.com
+   Copy it.
+
+PART 2: BUILD THE WINDOWS APP (once)
+1. Install Node.js from https://nodejs.org (the LTS version).
+2. Optional: open config.js in Notepad and paste your database address between the quotes.
+   Then every PC you copy the app to connects automatically.
+3. Double-click BUILD.bat and wait. It makes the folder  dist\Raffle Wheel-win32-x64
+4. Open that folder and double-click "Raffle Wheel.exe".
+   You can copy the whole folder to other PCs. Windows may warn about an unknown app.
+   Click "More info", then "Run anyway".
+
+PART 3: FIRST RUN
+1. If you did not fill in config.js, paste the database address when the app asks.
+2. Choose an admin password and a moderator password. Do this yourself before sharing the app.
+3. Admin: full control. Moderator: can only add names.
+
+SECRET WINNER CONTROL (admin only)
+Click the title "Raffle Wheel" three times quickly, or press Shift+H.
+Pick the next winner. It is saved online, so you can set it from a second PC and spin on the first.
+
+CHANGE A PASSWORD
+In the Firebase console open Realtime Database, Data tab, hover over "auth", click the X to delete it.
+Open the app and choose new passwords.
+
+GOOD TO KNOW
+- Passwords are checked inside the app and saved only as scrambled hashes. Once set, nobody can
+  overwrite them without the Firebase console.
+- Anyone who has your database address and technical skill could add or delete names.
+  Keep the address private.
+- The same index.html also works in a normal browser. Just double-click it.
